@@ -17,9 +17,11 @@ def search(query: str, palace_path: str, wing: str = None, room: str = None, n_r
     Search the palace. Returns verbatim drawer content.
     Optionally filter by wing (project) or room (aspect).
     """
+    from .config import MempalaceConfig
+    col_name = MempalaceConfig().collection_name
     try:
         client = chromadb.PersistentClient(path=palace_path)
-        col = client.get_collection("mempalace_drawers")
+        col = client.get_collection(col_name)
     except Exception:
         print(f"\n  No palace found at {palace_path}")
         print("  Run: mempalace init <dir> then mempalace mine <dir>")
@@ -85,15 +87,18 @@ def search(query: str, palace_path: str, wing: str = None, room: str = None, n_r
 
 
 def search_memories(
-    query: str, palace_path: str, wing: str = None, room: str = None, n_results: int = 5
+    query: str, palace_path: str, wing: str = None, room: str = None,
+    n_results: int = 5, collection_name: str = None,
 ) -> dict:
     """
     Programmatic search — returns a dict instead of printing.
     Used by the MCP server and other callers that need data.
     """
+    from .config import MempalaceConfig
+    col_name = collection_name or MempalaceConfig().collection_name
     try:
         client = chromadb.PersistentClient(path=palace_path)
-        col = client.get_collection("mempalace_drawers")
+        col = client.get_collection(col_name)
     except Exception as e:
         return {"error": f"No palace found at {palace_path}: {e}"}
 
