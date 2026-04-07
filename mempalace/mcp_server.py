@@ -420,7 +420,7 @@ def tool_diary_write(agent_name: str, entry: str, topic: str = "general"):
     This is the agent's personal journal — observations, thoughts,
     what it worked on, what it noticed, what it thinks matters.
     """
-    wing = f"wing_{agent_name.lower().replace(' ', '_')}"
+    wing = f"actor_{agent_name.lower().replace(' ', '_')}"
     room = "diary"
     col = _get_collection(create=True)
     if not col:
@@ -463,7 +463,7 @@ def tool_diary_read(agent_name: str, last_n: int = 10):
     Read an agent's recent diary entries. Returns the last N entries
     in chronological order — the agent's personal journal.
     """
-    wing = f"wing_{agent_name.lower().replace(' ', '_')}"
+    wing = f"actor_{agent_name.lower().replace(' ', '_')}"
     col = _get_collection()
     if not col:
         return _no_palace()
