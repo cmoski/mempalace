@@ -30,7 +30,7 @@ import chromadb
 
 from .knowledge_graph import KnowledgeGraph
 
-_kg = KnowledgeGraph()
+_kg = KnowledgeGraph(db_path=MempalaceConfig().kg_path)
 
 logging.basicConfig(level=logging.INFO, format="%(message)s", stream=sys.stderr)
 logger = logging.getLogger("mempalace_mcp")
@@ -248,9 +248,21 @@ def tool_graph_stats():
 
 
 def tool_add_drawer(
-    wing: str, room: str, content: str, source_file: str = None, added_by: str = "mcp"
+    wing: str, room: str, content: str, source_file: str = None,
+    added_by: str = "mcp", metadata: dict = None,
 ):
-    """File verbatim content into a wing/room. Checks for duplicates first."""
+    """File verbatim content into a wing/room. Checks for duplicates first.
+
+    Args:
+        wing: Wing (project/domain) to file into.
+        room: Room (aspect/category) within the wing.
+        content: Verbatim content to store.
+        source_file: Where this came from (optional).
+        added_by: Who is filing this (default: mcp).
+        metadata: Optional dict of custom metadata fields to store alongside
+                  the drawer. Supported keys: slug, domain, tags, related,
+                  source_system, external_id. All values must be strings.
+    """
     col = _get_collection(create=True)
     if not col:
         return _no_palace()
@@ -266,25 +278,48 @@ def tool_add_drawer(
 
     drawer_id = f"drawer_{wing}_{room}_{hashlib.md5((content[:100] + datetime.now().isoformat()).encode()).hexdigest()[:16]}"
 
+    meta = {
+        "wing": wing,
+        "room": room,
+        "source_file": source_file or "",
+        "chunk_index": 0,
+        "added_by": added_by,
+        "filed_at": datetime.now().isoformat(),
+    }
+    # Merge custom metadata (all values must be strings for ChromaDB)
+    if metadata:
+        for k, v in metadata.items():
+            if v is not None:
+                meta[k] = str(v)
+
     try:
         col.add(
             ids=[drawer_id],
             documents=[content],
-            metadatas=[
-                {
-                    "wing": wing,
-                    "room": room,
-                    "source_file": source_file or "",
-                    "chunk_index": 0,
-                    "added_by": added_by,
-                    "filed_at": datetime.now().isoformat(),
-                }
-            ],
+            metadatas=[meta],
         )
         logger.info(f"Filed drawer: {drawer_id} → {wing}/{room}")
         return {"success": True, "drawer_id": drawer_id, "wing": wing, "room": room}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def tool_get_drawer_by_id(drawer_id: str):
+    """Fetch a single drawer's full content and metadata by ID."""
+    col = _get_collection()
+    if not col:
+        return _no_palace()
+    try:
+        result = col.get(ids=[drawer_id], include=["documents", "metadatas"])
+        if not result["ids"]:
+            return {"error": f"Drawer not found: {drawer_id}"}
+        return {
+            "drawer_id": drawer_id,
+            "content": result["documents"][0],
+            "metadata": result["metadatas"][0],
+        }
+    except Exception as e:
+        return {"error": str(e)}
 
 
 def tool_delete_drawer(drawer_id: str):
@@ -301,6 +336,37 @@ def tool_delete_drawer(drawer_id: str):
         return {"success": True, "drawer_id": drawer_id}
     except Exception as e:
         return {"success": False, "error": str(e)}
+
+
+def tool_get_drawer_by_slug(slug: str):
+    """Find a drawer by its slug metadata field. For migration/repair/debugging."""
+    col = _get_collection()
+    if not col:
+        return _no_palace()
+    try:
+        result = col.get(
+            where={"slug": slug},
+            include=["documents", "metadatas"],
+        )
+        if not result["ids"]:
+            return {"error": f"No drawer found with slug: {slug}"}
+        # Return first match
+        return {
+            "drawer_id": result["ids"][0],
+            "content": result["documents"][0],
+            "metadata": result["metadatas"][0],
+            "total_matches": len(result["ids"]),
+        }
+    except Exception as e:
+        return {"error": str(e)}
+
+
+def tool_delete_drawer_by_slug(slug: str):
+    """Find and delete a drawer by slug. For migration/repair/debugging."""
+    found = tool_get_drawer_by_slug(slug)
+    if "error" in found:
+        return {"success": False, "error": found["error"]}
+    return tool_delete_drawer(found["drawer_id"])
 
 
 # ==================== KNOWLEDGE GRAPH ====================

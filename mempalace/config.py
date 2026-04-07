@@ -100,7 +100,18 @@ class MempalaceConfig:
     @property
     def collection_name(self):
         """ChromaDB collection name."""
+        env_val = os.environ.get("MEMPALACE_COLLECTION_NAME")
+        if env_val:
+            return env_val
         return self._file_config.get("collection_name", DEFAULT_COLLECTION_NAME)
+
+    @property
+    def kg_path(self):
+        """Path to the knowledge graph SQLite database."""
+        env_val = os.environ.get("MEMPALACE_KG_PATH")
+        if env_val:
+            return os.path.expanduser(env_val)
+        return self._file_config.get("kg_path", os.path.expanduser("~/.mempalace/knowledge_graph.sqlite3"))
 
     @property
     def people_map(self):

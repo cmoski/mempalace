@@ -119,21 +119,29 @@ def search_memories(
     except Exception as e:
         return {"error": f"Search error: {e}"}
 
+    ids = results["ids"][0]
     docs = results["documents"][0]
     metas = results["metadatas"][0]
     dists = results["distances"][0]
 
     hits = []
-    for doc, meta, dist in zip(docs, metas, dists):
-        hits.append(
-            {
-                "text": doc,
-                "wing": meta.get("wing", "unknown"),
-                "room": meta.get("room", "unknown"),
-                "source_file": Path(meta.get("source_file", "?")).name,
-                "similarity": round(1 - dist, 3),
-            }
-        )
+    for drawer_id, doc, meta, dist in zip(ids, docs, metas, dists):
+        hit = {
+            "drawer_id": drawer_id,
+            "text": doc,
+            "wing": meta.get("wing", "unknown"),
+            "room": meta.get("room", "unknown"),
+            "source_file": Path(meta.get("source_file", "?")).name,
+            "similarity": round(1 - dist, 3),
+        }
+        # Include custom metadata if present
+        if meta.get("slug"):
+            hit["slug"] = meta["slug"]
+        if meta.get("domain"):
+            hit["domain"] = meta["domain"]
+        if meta.get("tags"):
+            hit["tags"] = meta["tags"]
+        hits.append(hit)
 
     return {
         "query": query,
